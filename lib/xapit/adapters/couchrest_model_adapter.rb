@@ -21,7 +21,9 @@ module Xapit
     end
 
     def find_each(*args, &block)
-      # @target.find_each(*args, &block)
+      @target.all(*args).each do |record|
+        yield record
+      end
     end
   end
 end

@@ -152,7 +152,7 @@ module Xapit
     def matchset(options = {})
       @query_parser.query.matchset(options)
     end
-    
+
     # TODO this could use some refactoring
     # See issue #11 for why this is so complex.
     def fetch_results(options = {})
@@ -168,7 +168,7 @@ module Xapit
       end
       matches.map do |match|
         class_name, id = match.document.data.split('-')
-        member = records_by_class[class_name].detect { |m| m.id == id.to_i }
+        member = records_by_class[class_name].detect { |m| m.id == id.to_i || m.id == id }
         member.xapit_relevance = match.percent
         member
       end
