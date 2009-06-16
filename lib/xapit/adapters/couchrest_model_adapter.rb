@@ -7,15 +7,21 @@ module Xapit
     
     # TODO override the rest of the methods here...
     def find_single(id)
-      @target.find(id)
+      @target.get(id)
     end
 
     def find_multiple(ids)
-      @target.find(ids)
+      results = []
+      
+      ids.each do |id|
+        results << @target.get(id)
+      end
+
+      results
     end
 
     def find_each(*args, &block)
-      @target.find_each(*args, &block)
+      # @target.find_each(*args, &block)
     end
   end
 end
