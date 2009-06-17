@@ -70,6 +70,15 @@ module Xapit
         @database = nil
         @writable_database = nil
       end
+      
+      # Clear the current database from memory. Unfortunately this is a hack because
+      # Xapian doesn't provide a "close" method on the database. We just have to hope
+      # no other references are lying around.
+      def close_database
+        @database = nil
+        @writable_database = nil
+        GC.start
+      end
     end
   end
 end
