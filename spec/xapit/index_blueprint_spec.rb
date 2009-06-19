@@ -65,4 +65,36 @@ describe Xapit::IndexBlueprint do
     mock(XapitMember).find_each(:foo, :bar => :blah)
     index.index_all
   end
+  
+  it "should add a record from the index" do
+    member = XapitMember.new(:name => "New Record!")
+    @index.text :name
+    @index.create_record(member.id)
+    XapitMember.search("New Record").should == [member]
+  end
+  
+  it "should remove a record from the index" do
+    member = XapitMember.new(:name => "Bad Record!")
+    @index.text :name
+    @index.index_all
+    @index.destroy_record(member.id)
+    XapitMember.search("Bad Record").should == []
+  end
+  
+  it "should remove a record from the index" do
+    member = XapitMember.new(:name => "Bad Record!")
+    @index.text :name
+    @index.index_all
+    @index.destroy_record(member.id)
+    XapitMember.search("Bad Record").should == []
+  end
+  
+  it "should update a record in the index" do
+    member = XapitMember.new(:name => "New Record!")
+    @index.text :name
+    @index.index_all
+    member.update_attribute(:name, "Changed Record!")
+    @index.update_record(member.id)
+    XapitMember.search("Changed Record").should == [member]
+  end
 end
