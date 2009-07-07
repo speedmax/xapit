@@ -68,11 +68,11 @@ module Xapit
     end
     
     def condition_terms
-      condition_terms_from_hash(@options[:conditions])
+      parse_conditions(@options[:conditions])
     end
     
     def not_condition_terms
-      condition_terms_from_hash(@options[:not_conditions])
+      parse_conditions(@options[:not_conditions])
     end
     
     def facet_terms
@@ -108,24 +108,32 @@ module Xapit
     
     private
     
-    def condition_terms_from_hash(conditions)
-      if conditions
-        conditions.map do |name, value|
-          if value.kind_of? Array
-            Query.new(value.map { |v| condition_term(name, v) }, :or)
-          else
-            condition_term(name, value)
-          end
-        end.flatten
+    def parse_conditions(conditions)
+      if conditions.kind_of? Array
+        [Query.new(conditions.map { |hash| Query.new(condition_terms_from_hash(hash)) }, :or)]
+      elsif conditions.kind_of? Hash
+        condition_terms_from_hash(conditions)
       else
         []
       end
+    end
+    
+    def condition_terms_from_hash(conditions)
+      conditions.map do |name, value|
+        if value.kind_of? Array
+          Query.new(value.map { |v| condition_term(name, v) }, :or)
+        else
+          condition_term(name, value)
+        end
+      end.flatten
     end
     
     def condition_term(name, value)
       if value.kind_of?(Range) && @member_class
         position = @member_class.xapit_index_blueprint.position_of_field(name)
         Xapian::Query.new(Xapian::Query::OP_VALUE_RANGE, position, Xapit.serialize_value(value.begin), Xapit.serialize_value(value.end))
+      elsif value.to_s.ends_with?("*") && value.to_s.strip.length > 2
+        wildcard_query(value, "X#{name}-")
       else
         if value.kind_of? Time
           value = value.to_i
@@ -134,6 +142,15 @@ module Xapit
         end
         "X#{name}-#{value.to_s.downcase}"
       end
+    end
+    
+    # Expands the wildcard in the term (just at the end) and returns a query
+    # which will match any term that starts with the given term.
+    def wildcard_query(term, prefix = "")
+      partial_term = term.sub(/\*$/, '') # remove asterisk at end if it exists
+      parser = Xapian::QueryParser.new
+      parser.database = Xapit::Config.database
+      parser.parse_query(partial_term, Xapian::QueryParser::FLAG_PARTIAL, prefix)
     end
   end
 end

@@ -73,3 +73,58 @@ Scenario: Query Range of Integer
     | Jack | 24  |
   When I query "age" between 8 and 15
   Then I should find records named "John, Jane"
+
+Scenario: Query Partial Match on Condition
+  Given the following indexed records
+    | name | sirname  |
+    | John | Jacobson |
+    | Jane | Niel     |
+    | Jack | Striker  |
+  When I query "name" matching "Ja*"
+  Then I should find records named "Jane, Jack"
+
+Scenario: Query no partial match on conditions with one letter
+  Given the following indexed records
+    | name | sirname  |
+    | John | Jacobson |
+    | Jane | Niel     |
+    | Jack | Striker  |
+  When I query "name" matching " J*"
+  Then I should find 0 records
+
+Scenario: Query partial match in keywords
+  Given the following indexed records
+    | name | sirname  |
+    | John | Jacobson |
+    | Bill | Niel     |
+    | Jack | Striker  |
+  When I query for "Ja*"
+  Then I should find records named "John, Jack"
+
+Scenario: Query no partial match in keywords with one letter
+  Given the following indexed records
+    | name | sirname  |
+    | John | Jacobson |
+    | Bill | Niel     |
+    | Jack | J        |
+  When I query for " J*"
+  Then I should find records named "Jack"
+
+Scenario: Query for separate OR conditions
+  Given the following indexed records
+    | name | age |
+    | John | 23  |
+    | Jane | 17  |
+    | Jack | 18  |
+  When I query "age" matching "17" or "name" matching "Jack"
+  Then I should find records named "Jane, Jack"
+
+@focus
+Scenario: Query for condition in keywords string
+  Given the following indexed records
+    | name | age |
+    | John | 23  |
+    | Jane | 17  |
+    | Jack | 17  |
+  When I query for "age:17"
+  Then I should find records named "Jane, Jack"

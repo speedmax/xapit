@@ -1,3 +1,25 @@
+*0.2.6* (July 6th, 2009)
+
+* search for field conditions in query string, only supported by ClassicQueryParser
+  
+  search("age:17")
+
+* check if xapian database exists before removing
+
+* search multiple conditions with OR by passing an array
+
+  :conditions => [{ :category_id => 1 }, { :priority => 2 }]
+
+
+*0.2.5* (June 26th, 2009)
+
+* adding wildcard matching for general search query (ClassicQueryParser only)
+
+* adding wildcard matching when asterisk exists at end of condition
+
+  :conditions => { :name => "foo*" }
+
+
 *0.2.4* (June 23rd, 2009)
 
 * only create/update record in index if it matches xapit find conditions
