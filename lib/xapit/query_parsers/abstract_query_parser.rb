@@ -1,15 +1,25 @@
 module Xapit
   class AbstractQueryParser
-    attr_reader :member_class
+    attr_reader :member_class, :options
     attr_writer :base_query
+    attr_accessor :extra_queries
     
     def initialize(*args)
       @options = args.extract_options!
       @member_class = args[0]
       @search_text = args[1].to_s
+      @extra_queries = []
     end
     
     def query
+      if @extra_queries.blank?
+        primary_query
+      else
+        Query.new([primary_query] + @extra_queries, :or)
+      end
+    end
+    
+    def primary_query
       if (@search_text.split + condition_terms + not_condition_terms + facet_terms).empty?
         base_query
       else
@@ -47,12 +57,7 @@ module Xapit
     end
     
     def initial_query
-      query = Query.new(initial_query_strings, :or)
-      query.default_options[:offset] = offset
-      query.default_options[:limit] = per_page
-      query.default_options[:sort_by_values] = sort_by_values
-      query.default_options[:sort_descending] = @options[:descending]
-      query
+      Query.new(initial_query_strings, :or)
     end
     
     def initial_query_strings
@@ -106,6 +111,19 @@ module Xapit
       suggestion.blank? ? nil : suggestion
     end
     
+    def matchset(options = {})
+      query.matchset(query_options.merge(options))
+    end
+    
+    def query_options
+      {
+        :offset => offset,
+        :limit => per_page,
+        :sort_by_values => sort_by_values,
+        :sort_descending => @options[:descending]
+      }
+    end
+    
     private
     
     def parse_conditions(conditions)
@@ -147,10 +165,10 @@ module Xapit
     # Expands the wildcard in the term (just at the end) and returns a query
     # which will match any term that starts with the given term.
     def wildcard_query(term, prefix = "")
-      partial_term = term.sub(/\*$/, '') # remove asterisk at end if it exists
+      full_term = (prefix + term.downcase).sub(/\*$/, '') # remove asterisk at end if it exists
       parser = Xapian::QueryParser.new
       parser.database = Xapit::Config.database
-      parser.parse_query(partial_term, Xapian::QueryParser::FLAG_PARTIAL, prefix)
+      parser.parse_query(full_term[-1..-1], Xapian::QueryParser::FLAG_PARTIAL, full_term[0..-2])
     end
   end
 end

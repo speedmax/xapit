@@ -13,13 +13,14 @@ module Xapit
     [].methods.each do |m|
       delegate m, :to => :results unless m =~ /^__/ || NON_DELEGATE_METHODS.include?(m.to_s)
     end
+    delegate :query, :base_query, :base_query=, :extra_queries, :extra_queries=, :to => :@query_parser
     
     def self.search_similar(member, *args)
       collection = new(member.class, *args)
       indexer = SimpleIndexer.new(member.class.xapit_index_blueprint)
       terms = indexer.text_terms(member) + indexer.field_terms(member)
-      collection.base_query.and_query(terms, :or)
-      collection.base_query.not_query("Q#{member.class}-#{member.id}")
+      query = collection.base_query.and_query(terms, :or).not_query("Q#{member.class}-#{member.id}")
+      collection.base_query = query
       collection
     end
     
@@ -37,7 +38,7 @@ module Xapit
     def size
       @query_parser.query.count
     end
-    alias_method :total_entries, :size
+    alias_method :total_entries, :size # alias to total_entries to support will_paginate
     
     # Returns true if no results are found.
     def empty?
@@ -56,18 +57,29 @@ module Xapit
     
     # Perform another search on this one, inheriting all options already passed.
     # See Xapit::Membership for search options.
-    def search(keywords, options = {})
-      collection = Collection.new(@query_parser.member_class, keywords, options)
+    #
+    #   Article.search("kite").search("sky") # only performs one query
+    # 
+    def search(*args)
+      options = args.extract_options!
+      collection = Collection.new(@query_parser.member_class, args[0].to_s, @query_parser.options.merge(options))
       collection.base_query = @query_parser.query
       collection
     end
     
-    def base_query=(base_query)
-      @query_parser.base_query = base_query
-    end
-    
-    def base_query
-      @query_parser.base_query
+    # Chain another search returning all records matched by either this search or the previous search
+    # Inherits all options passed in earlier search (such as :page and :order)
+    # See Xapit::Membership for search options.
+    #
+    #   Article.search("kite").or_search(:conditions => { :priority => 1 })
+    # 
+    def or_search(*args)
+      options = args.extract_options!
+      collection = Collection.new(@query_parser.member_class, args[0].to_s, @query_parser.options.merge(options))
+      collection.base_query = @query_parser.base_query
+      collection.extra_queries = @query_parser.extra_queries
+      collection.extra_queries << @query_parser.primary_query
+      collection
     end
     
     # The page number we are currently on.
@@ -87,7 +99,7 @@ module Xapit
     
     # Total number of pages with found results.
     def total_pages
-      (total_entries / per_page.to_f).ceil
+      (size / per_page.to_f).ceil
     end
     
     # The previous page number. Returns nil if on first page.
@@ -150,15 +162,11 @@ module Xapit
     end
     
     private
-    
-    def matchset(options = {})
-      @query_parser.query.matchset(options)
-    end
 
     # TODO this could use some refactoring
     # See issue #11 for why this is so complex.
     def fetch_results(options = {})
-      matches = matchset(options).matches
+      matches = @query_parser.matchset(options).matches
       records_by_class = {}
       matches.each do |match|
         class_name, id = match.document.data.split('-')
