@@ -4,6 +4,8 @@ Xapit (pronounced "zap it") is a high level interface for working with a Xapian 
 
 Note: This project is early in development and the API is subject to change.
 
+**Todo**
+ - CouchDb Adapter could use a little more work to make fetching multiple documents more efficient (batch)
 
 == Install
 
