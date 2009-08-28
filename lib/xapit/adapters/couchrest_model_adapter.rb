@@ -5,23 +5,28 @@ module Xapit
       member_class.ancestors.map(&:to_s).include? "CouchRest::ExtendedDocument"
     end
     
-    # TODO override the rest of the methods here...
     def find_single(id)
       @target.get(id)
     end
 
+    # Get multiple documents
     def find_multiple(ids)
-      results = []
-      
-      ids.each do |id|
-        results << @target.get(id)
-      end
-
-      results
+      @target.all(:keys => ids)
     end
 
+    # Use CouchRest pagination for batched find_each
     def find_each(*args, &block)
-      # @target.find_each(*args, &block)
+      unless per_page = args.first[:per_page]
+        per_page = 100
+      end
+
+      page  = 1
+      loop !collection.empty? do
+        collection = @target.all.paginate(:page => page, :per_page => per_page)
+        collection.each do |record|
+          yield record
+        end
+      end
     end
   end
 end
