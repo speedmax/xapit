@@ -49,7 +49,7 @@ module Xapit
     # Adds a field attribute. Field terms are not split by word so it is not designed for full text search.
     # Instead you can filter through a field using the :conditions hash in a search query.
     #
-    #   Article.search("", :conditions => { :priority => 5 })
+    #   Article.search(:conditions => { :priority => 5 })
     # 
     # Multiple field values are supported if the given attribute is an array.
     # 
@@ -79,16 +79,40 @@ module Xapit
       end
     end
     
+    # The Xapian value index position of a sortable attribute
     def position_of_sortable(sortable_attribute)
       index = sortable_attributes.map(&:to_s).index(sortable_attribute.to_s)
       raise "Unable to find indexed sortable attribute \"#{sortable_attribute}\" in #{@member_class} sortable attributes: #{sortable_attributes.inspect}" if index.nil?
       index + facets.size
     end
     
+    # The Xapian value index position of a field attribute
     def position_of_field(field_attribute)
       index = field_attributes.map(&:to_s).index(field_attribute.to_s)
       raise "Unable to find indexed field attribute \"#{field_attribute}\" in #{@member_class} field attributes: #{field_attributes.inspect}" if index.nil?
       index + facets.size + sortable_attributes.size
+    end
+    
+    # Add a single record to the index if it matches the xapit options.
+    def create_record(member_id)
+      member = @member_class.xapit_adapter.find_single(member_id, *@args)
+      @indexer.add_member(member) if member
+    end
+    
+    # Update a single record in the index. If the record does not match the xapit
+    # conditions then it is removed from the index instead.
+    def update_record(member_id)
+      member = @member_class.xapit_adapter.find_single(member_id, *@args)
+      if member
+        @indexer.update_member(member)
+      else
+        destroy_record(member_id)
+      end
+    end
+    
+    # Remove a single record from the index.
+    def destroy_record(member_id)
+      Xapit::Config.writable_database.delete_document("Q#{@member_class}-#{member_id}")
     end
     
     private

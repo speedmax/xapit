@@ -50,10 +50,6 @@ describe Xapit::Collection do
         Xapit::Collection.new(XapitMember, "").last.should == @foo
       end
       
-      it "should support nested search" do
-        Xapit::Collection.new(XapitMember, "world").search("foo") == [@foo]
-      end
-      
       it "should support page and per_page options" do
         Xapit::Collection.new(XapitMember, :page => 1, :per_page => 1).should == [@hello]
         Xapit::Collection.new(XapitMember, :page => 2, :per_page => 1).should == [@foo]
@@ -147,6 +143,33 @@ describe Xapit::Collection do
       it "should be able to specify classes" do
         Xapit::Collection.new(nil, "foo", :classes => [String, Array]).should == []
         Xapit::Collection.new(nil, "foo", :classes => [String, Array, XapitMember]).should == [@foo]
+      end
+      
+      it "should support nested or_search" do
+        Xapit::Collection.new(XapitMember, "world", :order => :name).or_search("foo").should == [@foo, @hello]
+      end
+      
+      it "should override options in nested or_search" do
+        Xapit::Collection.new(XapitMember, "world", :order => :name, :per_page => 2).or_search("foo", :per_page => 1).should == [@foo]
+      end
+      
+      it "should combine multiple or_search" do
+        @buz = XapitMember.new(:name => "buz")
+        @zot = XapitMember.new(:name => "zot")
+        Xapit.remove_database
+        Xapit.index_all
+        Xapit::Collection.new(XapitMember, "world", :order => :name).or_search("foo").or_search("buz").should == [@buz, @foo, @hello]
+      end
+      
+      it "should support nested search" do
+        @zap = XapitMember.new(:name => "zap world")
+        Xapit.remove_database
+        Xapit.index_all
+        Xapit::Collection.new(XapitMember, "world").search("zap") == [@zap]
+      end
+      
+      it "should inherit options in nested collection search" do
+        Xapit::Collection.new(XapitMember, "world", :per_page => 3).search("zap").per_page.should == 3
       end
     end
   end

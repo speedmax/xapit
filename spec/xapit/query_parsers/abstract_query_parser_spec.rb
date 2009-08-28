@@ -38,4 +38,23 @@ describe Xapit::AbstractQueryParser do
     parser = Xapit::AbstractQueryParser.new(XapitMember, :conditions => { :foo => 2..5 })
     parser.condition_terms.first.description.should == expected.description
   end
+    
+  it "should allow range condition to be specified in array." do
+    XapitMember.xapit { |i| i.field :foo }
+    expected = Xapian::Query.new(Xapian::Query::OP_OR,
+      Xapian::Query.new(Xapian::Query::OP_VALUE_RANGE, 0, Xapian.sortable_serialise(2), Xapian.sortable_serialise(5)),
+      Xapian::Query.new(Xapian::Query::OP_AND, ["Xfoo-10"])
+    )
+    parser = Xapit::AbstractQueryParser.new(XapitMember, :conditions => { :foo => [2..5, 10] })
+    parser.condition_terms.first.xapian_query.description.should == expected.description
+  end
+    
+  it "should expand punctuated terms properly" do
+    XapitMember.xapit { |i| i.field :name }
+    bar = XapitMember.new(:name => "foo-bar")
+    baz = XapitMember.new(:name => "foo-baz")
+    zap = XapitMember.new(:name => "foo-zap")
+    Xapit.index_all
+    XapitMember.search(:conditions => { :name => "foo-b*"}).should == [bar, baz]
+  end
 end

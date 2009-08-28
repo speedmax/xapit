@@ -47,6 +47,7 @@ module Xapit
         @xapit_index_blueprint = IndexBlueprint.new(self, *args)
         yield(@xapit_index_blueprint)
         include AdditionalMethods
+        include XapitSync::Membership if defined? XapitSync
       end
     end
     
@@ -83,10 +84,19 @@ module Xapit
         #   @articles = Article.search("phone", :order => [:category_id, :id], :descending => true)
         #
         #   # basic boolean matching is supported
-        #   @articles = Article.search("phone or fax not email")
+        #   @articles = Article.search("phone OR fax NOT email")
+        #
+        #   # field conditions in query string
+        #   @articles = Article.search("priority:3")
         #
         #   # no need to specify first query string when searching all records
         #   @articles = Article.search(:conditions => { :category_id => params[:category_id] })
+        #
+        #   # search partial terms with asterisk (only supported at end of term)
+        #   @articles = Article.search("sab*", :conditions => { :name => "Din*" })
+        #
+        #   # search multiple conditions with OR by passing an array
+        #   @articles = Article.search(:conditions => [{ :category_id => 1 }, { :priority => 2 }])
         #
         def search(*args)
           Collection.new(self, *args)

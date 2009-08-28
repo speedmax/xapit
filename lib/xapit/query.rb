@@ -3,11 +3,10 @@ module Xapit
   # this class unless you are trying to query the Xapian database directly.
   # You may be looking for Xapit::Collection instead.
   class Query
-    attr_reader :default_options, :xapian_query
+    attr_reader :xapian_query
     
     def initialize(*args)
       @xapian_query = build_xapian_query(*args)
-      @default_options = { :offset => 0, :sort_descending => false }
     end
     
     def and_query(*args)
@@ -23,7 +22,7 @@ module Xapit
     end
     
     def matchset(options = {})
-      options.reverse_merge!(default_options)
+      options.reverse_merge! :offset => 0, :sort_descending => false
       enquire = Xapian::Enquire.new(Config.database)
       if options[:sort_by_values]
         sorter = Xapian::MultiValueSorter.new
@@ -43,14 +42,17 @@ module Xapit
     
     def count
       # a bit of a hack to get more accurate count estimate
-      matchset(:limit => Config.database.doccount).matches_estimated
+      @count ||= matchset(:limit => Config.database.doccount).matches_estimated
     end
     
     private
     
     def merge_query(operator, *args)
-      @xapian_query = Xapian::Query.new(xapian_operator(operator), @xapian_query, build_xapian_query(*args)) unless args.first.blank?
-      self
+      if args.first.blank?
+        self
+      else
+        Xapit::Query.new([@xapian_query, build_xapian_query(*args)], operator)
+      end
     end
     
     def build_xapian_query(query, operator = :and)

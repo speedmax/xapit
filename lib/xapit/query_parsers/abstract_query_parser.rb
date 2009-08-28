@@ -1,15 +1,25 @@
 module Xapit
   class AbstractQueryParser
-    attr_reader :member_class
+    attr_reader :member_class, :options
     attr_writer :base_query
+    attr_accessor :extra_queries
     
     def initialize(*args)
       @options = args.extract_options!
       @member_class = args[0]
       @search_text = args[1].to_s
+      @extra_queries = []
     end
     
     def query
+      if @extra_queries.blank?
+        primary_query
+      else
+        Query.new([primary_query] + @extra_queries, :or)
+      end
+    end
+    
+    def primary_query
       if (@search_text.split + condition_terms + not_condition_terms + facet_terms).empty?
         base_query
       else
@@ -47,12 +57,7 @@ module Xapit
     end
     
     def initial_query
-      query = Query.new(initial_query_strings, :or)
-      query.default_options[:offset] = offset
-      query.default_options[:limit] = per_page
-      query.default_options[:sort_by_values] = sort_by_values
-      query.default_options[:sort_descending] = @options[:descending]
-      query
+      Query.new(initial_query_strings, :or)
     end
     
     def initial_query_strings
@@ -68,11 +73,11 @@ module Xapit
     end
     
     def condition_terms
-      condition_terms_from_hash(@options[:conditions])
+      parse_conditions(@options[:conditions])
     end
     
     def not_condition_terms
-      condition_terms_from_hash(@options[:not_conditions])
+      parse_conditions(@options[:not_conditions])
     end
     
     def facet_terms
@@ -106,32 +111,64 @@ module Xapit
       suggestion.blank? ? nil : suggestion
     end
     
+    def matchset(options = {})
+      query.matchset(query_options.merge(options))
+    end
+    
+    def query_options
+      {
+        :offset => offset,
+        :limit => per_page,
+        :sort_by_values => sort_by_values,
+        :sort_descending => @options[:descending]
+      }
+    end
+    
     private
     
-    def condition_terms_from_hash(conditions)
-      if conditions
-        conditions.map do |name, value|
-          if value.kind_of? Array
-            Query.new(value.map { |v| condition_term(name, v) }, :or)
-          elsif value.kind_of?(Range) && @member_class
-            position = @member_class.xapit_index_blueprint.position_of_field(name)
-            Xapian::Query.new(Xapian::Query::OP_VALUE_RANGE, position, Xapit.serialize_value(value.begin), Xapit.serialize_value(value.end))
-          else
-            condition_term(name, value)
-          end
-        end.flatten
+    def parse_conditions(conditions)
+      if conditions.kind_of? Array
+        [Query.new(conditions.map { |hash| Query.new(condition_terms_from_hash(hash)) }, :or)]
+      elsif conditions.kind_of? Hash
+        condition_terms_from_hash(conditions)
       else
         []
       end
     end
     
+    def condition_terms_from_hash(conditions)
+      conditions.map do |name, value|
+        if value.kind_of? Array
+          Query.new(value.map { |v| condition_term(name, v) }, :or)
+        else
+          condition_term(name, value)
+        end
+      end.flatten
+    end
+    
     def condition_term(name, value)
-      if value.kind_of? Time
-        value = value.to_i
-      elsif value.kind_of? Date
-        value = value.to_time.to_i
+      if value.kind_of?(Range) && @member_class
+        position = @member_class.xapit_index_blueprint.position_of_field(name)
+        Xapian::Query.new(Xapian::Query::OP_VALUE_RANGE, position, Xapit.serialize_value(value.begin), Xapit.serialize_value(value.end))
+      elsif value.to_s.ends_with?("*") && value.to_s.strip.length > 2
+        wildcard_query(value, "X#{name}-")
+      else
+        if value.kind_of? Time
+          value = value.to_i
+        elsif value.kind_of? Date
+          value = value.to_time.to_i
+        end
+        "X#{name}-#{value.to_s.downcase}"
       end
-      "X#{name}-#{value.to_s.downcase}"
+    end
+    
+    # Expands the wildcard in the term (just at the end) and returns a query
+    # which will match any term that starts with the given term.
+    def wildcard_query(term, prefix = "")
+      full_term = (prefix + term.downcase).sub(/\*$/, '') # remove asterisk at end if it exists
+      parser = Xapian::QueryParser.new
+      parser.database = Xapit::Config.database
+      parser.parse_query(full_term[-1..-1], Xapian::QueryParser::FLAG_PARTIAL, full_term[0..-2])
     end
   end
 end

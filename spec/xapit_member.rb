@@ -26,6 +26,10 @@ class XapitMember
     end
   end
   
+  def self.find_by_id(id)
+    find(id)
+  end
+  
   def initialize(attributes = {})
     @@records ||= []
     @id = @@records.size + 1
@@ -39,5 +43,9 @@ class XapitMember
     else
       super
     end
+  end
+  
+  def update_attribute(name, value)
+    @attributes[name] = value
   end
 end
