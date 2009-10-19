@@ -4,9 +4,6 @@ Xapit (pronounced "zap it") is a high level interface for working with a Xapian 
 
 Note: This project is early in development and the API is subject to change.
 
-**Todo**
- - CouchDb Adapter could use a little more work to make fetching multiple documents more efficient (batch)
-
 == Install
 
 If you haven't already, first install Xapian and the Xapian Bindings for Ruby.
@@ -27,6 +24,33 @@ And then install the gem and run the generator.
 
 Important: only run the generator script on a gem install, not for the plugin.
 
+== Couchrest support
+Couchrest adapter has been added to support Couchrest::ExtendedDocument models
+
+ - Support indexing Couchrest views and view queries
+ - Support indexing couchrest document in batch (default: 200)
+
+Sounds all good, Show me some examples please
+
+    class Task < Couchrest::ExtendedDocument
+      property :description
+      property :user_id
+      property :timeline
+      view_by :timeline
+
+      # Simple example index all records
+      xapit do |index|
+        index.text :description
+        index.field :timeline, :user_id
+      end
+
+      # Advanced example
+      #   - Only index tasks that is no older than 7 days
+      #   - change batch size
+      xapit(:by_timeline, :batch_size => 1000, :startkey=> Time.now, :endkey => 7.days.ago) do |index|
+        index.text :description
+      end
+    end
 
 == Setup
 
