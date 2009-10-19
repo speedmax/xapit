@@ -4,8 +4,33 @@ Xapit (pronounced "zap it") is a high level interface for working with a Xapian 
 
 Note: This project is early in development and the API is subject to change.
 
-**Todo**
- - CouchDb Adapter could use a little more work to make fetching multiple documents more efficient (batch)
+== Couchrest Support
+Xapit indexing support for Couchrest::ExtendedDocument records
+
+ - support couchdb views and view queries indexing
+ - support batch indexing (default:200)
+ 
+Example
+    class Task < Couchrest::ExtendedDocument
+      property :description
+      property :user_id
+      property :timeline
+      view_by :timeline
+
+      # Simple example index all records
+      xapit do |index|
+        index.text :description
+        index.field :timeline, :user_id
+      end
+
+      # Advanced example
+      #   - couchdb view indexing
+      #   - Only index tasks that is no older than 7 days
+      #   - change batch size
+      xapit(:by_timeline, :batch_size => 1000, :startkey=> Time.now, :endkey => 7.days.ago) do |index|
+        index.text :description
+      end
+    end
 
 == Install
 
